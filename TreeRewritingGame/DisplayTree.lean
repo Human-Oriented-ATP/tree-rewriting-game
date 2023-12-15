@@ -6,6 +6,7 @@ open Lean Meta
 
 inductive DisplayTree where 
   | node: (label : String) → (children: Array DisplayTree) → DisplayTree
+deriving Repr
 
 open DisplayTree
 
