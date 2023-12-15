@@ -106,9 +106,12 @@ export default function RenderDisplay(props: DisplayTreeProps) : JSX.Element {
       }}
       ref={r}
     >
-     <LocationsContext.Provider value = {locs}>
-        <RenderDisplayTree pos={pos} tree={props.tree} r={r} />
-     </LocationsContext.Provider>
-     <div>{selectedLocs.map(loc => {console.log(loc); return <p>Location selected</p>})}</div>
+      <details open={true}>
+        <summary>Goal state tree display</summary>
+        <LocationsContext.Provider value={locs}>
+            <RenderDisplayTree pos={pos} tree={props.tree} r={r} />
+        </LocationsContext.Provider>
+      </details>
+      <div>{selectedLocs.map(loc => {console.log(loc); return <p>Location selected</p>})}</div>
     </div>)
 }
