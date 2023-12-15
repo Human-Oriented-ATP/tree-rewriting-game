@@ -1,12 +1,14 @@
 import * as React from 'react';
 import Tree from 'react-d3-tree';
-import { CodeWithInfos, DocumentPosition, InteractiveCode } from '@leanprover/infoview';
+import { LocationsContext, CodeWithInfos, DocumentPosition, InteractiveCode, GoalsLocation, PanelWidgetProps } from '@leanprover/infoview';
 import type { RawNodeDatum, CustomNodeElementProps } from 'react-d3-tree/lib/types/types/common';
 
 export type DisplayTree =
   { node: { label?: CodeWithInfos, children: Array<DisplayTree> } }
 
 export type TreeNodeDatum = RawNodeDatum & { label?: CodeWithInfos }
+
+export type DisplayTreeProps = PanelWidgetProps & { tree : DisplayTree }
 
 function treeToData(tree: DisplayTree): TreeNodeDatum {
     const { label, children } = tree.node
@@ -52,7 +54,7 @@ function centerTree (r : React.RefObject<HTMLDivElement>, t : any, setT : React.
     })
 }
 
-export function renderDisplayTree({ pos, tree, r }: 
+export function RenderDisplayTree({ pos, tree, r }: 
     { pos: DocumentPosition, tree: DisplayTree, r : React.RefObject<HTMLDivElement> }): 
     JSX.Element {
     const nodeSize = { x: 120, y: 40 }
@@ -71,8 +73,25 @@ export function renderDisplayTree({ pos, tree, r }:
     )
 }
 
-function renderDisplay({ pos, tree }: { pos: DocumentPosition, tree: DisplayTree }): 
-    JSX.Element {
+export default function RenderDisplay(props: DisplayTreeProps) : JSX.Element {
+    const pos = props.pos
+    const [selectedLocs, setSelectedLocs] = React.useState<GoalsLocation[]>([]);
+    const locs = React.useMemo(() => ({
+        isSelected: (l : GoalsLocation) => selectedLocs.some(v => GoalsLocation.isEqual(v, l)),
+        setSelected: (l : GoalsLocation, act : any) => setSelectedLocs(ls => {
+            // We ensure that `selectedLocs` maintains its reference identity if the selection
+            // status of `l` didn't change.
+            const newLocs = ls.filter(v => !GoalsLocation.isEqual(v, l));
+            const wasSelected = newLocs.length !== ls.length;
+            const isSelected = typeof act === 'function' ? act(wasSelected) : act;
+            if (isSelected)
+                newLocs.push(l);
+            return wasSelected === isSelected ? ls : newLocs;
+        }),
+        subexprTemplate: { mvarId: '', loc: { target: '' }}
+    }), [selectedLocs]);
+    props.selectedLocations = selectedLocs;
+    React.useEffect(() => setSelectedLocs([]), [pos.uri, pos.line, pos.character]);
     const r = React.useRef<HTMLDivElement>(null)
     return (
     <div
@@ -87,10 +106,9 @@ function renderDisplay({ pos, tree }: { pos: DocumentPosition, tree: DisplayTree
       }}
       ref={r}
     >
-    {renderDisplayTree( {pos, tree, r} )}
+     <LocationsContext.Provider value = {locs}>
+        <RenderDisplayTree pos={pos} tree={props.tree} r={r} />
+     </LocationsContext.Provider>
+     <div>{selectedLocs.map(loc => {console.log(loc); return <p>Location selected</p>})}</div>
     </div>)
-}
-
-export default function ({ pos, tree }: { pos: DocumentPosition, tree: DisplayTree }): JSX.Element { 
-    return renderDisplay({pos, tree})
 }
