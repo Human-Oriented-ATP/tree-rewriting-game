@@ -20,7 +20,7 @@ section ProofWidgets
 
 /-! Scripts from the `ProofWidgets` `lakefile` to build `TypeScript` code. -/
 
-def npmCmd : String := "npm.cmd"
+def npmCmd : String := if System.Platform.isWindows then "npm.cmd" else "npm"
 
 def widgetDir := __dir__ / "widget"
 
