@@ -1,15 +1,16 @@
 import TreeRewritingGame.OrdinaryDisplay
 import TreeRewritingGame.MaskedDisplay
+import Std.Data.Option.Basic
 
 open Lean Meta Elab Tactic ProofWidgets
 
-def getLhsAndRhs (e : Expr) : MetaM $ Option (Expr × Expr) := 
-  forallTelescopeReducing e (fun _ body => 
+def withLhsAndRhs (e : Expr) (f : (Expr × Expr) → MetaM α) : MetaM (Option α) := do
+  forallTelescopeReducing e (fun _ body =>
     let (function, arguments) := unfoldArguments body
     match function with 
     | .const `Eq _ => do 
-        pure ((← reduceAll arguments[1]!), (← reduceAll arguments[2]!))
-    | _ => pure none
+        return (← f ((← reduceAll arguments[1]!), (← reduceAll arguments[2]!)))
+    | _ => return none
   )
 
 structure Rule where 
@@ -20,10 +21,12 @@ deriving Repr
 def treeOfEqualityRule (rule : Name) : MetaM $ Option Rule := do
   let some constantInfo := (← getEnv).find? rule | pure none
   let type := constantInfo.type
-  let some (lhs, rhs) ← getLhsAndRhs type | pure none
-  let some lhsTree ← lhs.toDisplayTree | pure none
-  let some rhsTree ← rhs.toDisplayTree | pure none
-  return some ⟨lhsTree, rhsTree⟩  
+  let result ← withLhsAndRhs type (fun (lhs, rhs)=> do 
+    let some lhsTree ← lhs.toDisplayTree | pure none
+    let some rhsTree ← rhs.toDisplayTree | pure none
+    return some ⟨lhsTree, rhsTree⟩     
+  )
+  return Option.join result
 
 #mkrpcenc Rule
 
@@ -58,11 +61,9 @@ def elabTreeRuleCommand : CommandElab := fun
     runTermElabM fun _ => do
       let rule ← evalTreeRule t
       let some rule  ← treeOfEqualityRule rule | return ()
-      dbg_trace "{repr rule}"
       let ht := (← rule.masked).draw
       savePanelWidgetInfo stx ``HtmlDisplayPanel do
         return json% { html: $(← rpcEncode ht) }
   | stx => throwError "Unexpected syntax {stx}."
-
 
 #treeRule `Nat.add_mul
