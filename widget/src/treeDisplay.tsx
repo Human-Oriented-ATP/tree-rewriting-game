@@ -33,7 +33,7 @@ function renderForeignObjectNode({ nodeDatum }: CustomNodeElementProps, _: Docum
   const nodeDatum_ = nodeDatum as TreeNodeDatum
   return (
     <g>
-      <rect x="-50" y="-10" width="100" height="20" fill="green" style={{ border: "black" }} />
+      <rect x="-25" y="-10" width="50" height="20" fill="yellow" style={{ border: "black" }} />
       <foreignObject {...foreignObjectProps} style={{ textAlign: "center" }}>
         {nodeDatum_.label}
       </foreignObject>
@@ -55,8 +55,8 @@ function centerTree (r : React.RefObject<HTMLDivElement>, t : any, setT : React.
 export function renderDisplayTree({ pos, tree, r }: 
     { pos: DocumentPosition, tree: DisplayTree, r : React.RefObject<HTMLDivElement> }): 
     JSX.Element {
-    const nodeSize = { x: 120, y: 40 }
-    const foreignObjectProps = { width: 100, height: 30, y: -10, x: -50 }
+    const nodeSize = { x: 60, y: 40 }
+    const foreignObjectProps = { width: 50, height: 30, y: -10, x: -25 }
     const [t, setT] = React.useState<any | null>(null)
     centerTree(r, t, setT)
     return (
