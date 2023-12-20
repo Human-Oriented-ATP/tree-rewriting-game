@@ -1,2 +1,1 @@
-import TreeRewritingGame.MaskedDisplay
-import TreeRewritingGame.OrdinaryDisplay
+import TreeRewritingGame.LibraryDisplay
