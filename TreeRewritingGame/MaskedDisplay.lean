@@ -1,4 +1,5 @@
 import TreeRewritingGame.DisplayTree
+import ProofWidgets
 
 open Lean Meta Elab Tactic ProofWidgets
 
