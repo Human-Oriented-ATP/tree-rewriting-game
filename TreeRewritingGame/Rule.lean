@@ -1,5 +1,4 @@
-import TreeRewritingGame.OrdinaryDisplay
-import TreeRewritingGame.MaskedDisplay
+import TreeRewritingGame.TreeDisplay
 import Std.Data.Option.Basic
 
 open Lean Meta Elab Tactic ProofWidgets
@@ -51,9 +50,6 @@ opaque evalTreeRule : Term → TermElabM Name
 
 syntax (name := treeRuleCommand) "#treeRule " term : command
 
-def Rule.masked (r : Rule) : CoreM Rule := do 
-  return ⟨← r.lhs.withAliases, ← r.rhs.withAliases⟩ 
-
 open Command Lean.Server in
 @[command_elab treeRuleCommand]
 def elabTreeRuleCommand : CommandElab := fun
@@ -61,7 +57,7 @@ def elabTreeRuleCommand : CommandElab := fun
     runTermElabM fun _ => do
       let rule ← evalTreeRule t
       let some rule  ← treeOfEqualityRule rule | return ()
-      let ht := (← rule.masked).draw
+      let ht := rule.draw
       savePanelWidgetInfo stx ``HtmlDisplayPanel do
         return json% { html: $(← rpcEncode ht) }
   | stx => throwError "Unexpected syntax {stx}."

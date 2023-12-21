@@ -1,6 +1,5 @@
 import ProofWidgets 
 import Std.Data.Array.Basic
-import TreeRewritingGame.DisplayAliasExtension
 
 open Lean Meta
 
@@ -14,24 +13,21 @@ def DisplayTree.leaf (label : String) := node label #[]
 
 #mkrpcenc DisplayTree
 
-partial def DisplayTree.withAliases : DisplayTree → CoreM DisplayTree 
-  | node label children => do 
-    let alias_ := match (← DisplayAlias.getAlias? label) with 
-      | some alias_ => alias_
-      | none => label 
-    pure (node alias_ (← children.mapM DisplayTree.withAliases)) 
-
 def unfoldArguments : Expr → Expr × Array Expr
   | Expr.app f x => let (function, arguments) := unfoldArguments f
                     (function, arguments ++ #[x]) 
   | e => (e, #[])
 
+def ppConst : String → String 
+  | "@Eq" => "="
+  | "@Function.comp" => "∘"
+  | l => l
+
 open Expr in 
 partial def Lean.Expr.toDisplayTree (e : Expr) : MetaM (Option DisplayTree) := do 
   match e with 
   | e@(const ..) => let label := (← ppExpr e).pretty
-                    DisplayAlias.addLabel label
-                    return leaf label
+                    return leaf $ ppConst label
   | fvar fvarId => let userFacingName := (← getLCtx).get! fvarId |>.userName
                    return leaf userFacingName.toString
   | mvar mvarId => return leaf mvarId.name.toString 
@@ -40,23 +36,21 @@ partial def Lean.Expr.toDisplayTree (e : Expr) : MetaM (Option DisplayTree) := d
              | .strVal s => return leaf s 
   | sort _ => return none 
   | app f x => do
-      match f with 
+      let (function, arguments) := unfoldArguments (Expr.app f x)
+      let argumentsAsTrees := (← arguments.mapM Expr.toDisplayTree).reduceOption 
+      match function with 
       | .const c _ => 
         if (← isInstance c) then 
-          dbg_trace "Found instance constant: {c}"
           return none
         else 
-          let (function, arguments) := unfoldArguments (Expr.app f x)
-          let argumentsAsTrees ← arguments.mapM Expr.toDisplayTree 
           let label := (← ppExpr function).pretty
-          DisplayAlias.addLabel label
-          return node label argumentsAsTrees.reduceOption  
-      | _ => 
-        let (function, arguments) := unfoldArguments (Expr.app f x)
-        let argumentsAsTrees ← arguments.mapM Expr.toDisplayTree 
-        let label := (← ppExpr function).pretty
-        DisplayAlias.addLabel label
-        return node label argumentsAsTrees.reduceOption  
+          return node (ppConst label) argumentsAsTrees
+      | fvar fvarId => let userFacingName := (← getLCtx).get! fvarId |>.userName
+                       return node userFacingName.toString argumentsAsTrees  
+      | _ => -- mainly for the lambda case
+        let some functionAsTree ← function.toDisplayTree 
+            | throwError "Function {function} cannot be converted to DisplayTree"
+        return node "app" (#[functionAsTree] ++ argumentsAsTrees)  
   | e@(Expr.forallE ..) =>
       Meta.forallTelescopeReducing e (fun fvars body => do
       let isDependent := body.hasAnyFVar (fun f => fvars.contains (fvar f))
