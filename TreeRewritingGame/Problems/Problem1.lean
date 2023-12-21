@@ -5,11 +5,9 @@ def A : T₀ → T₀ → T₀ := Nat.add
 
 def problem (x y z : T₀) : Prop := A x (A y z) = A (A y x) z
 
-def l0 : A x y = A y x := by 
-  rw [A] ; apply Nat.add_comm
+def l0 : A x y = A y x := Nat.add_comm _ _
 
-def l1 : A (A x y) z = A x (A y z) := by 
-  rw [A] ; apply Nat.add_assoc
+def l1 : A (A x y) z = A x (A y z) := Nat.add_assoc _ _ _
 
 def library : Array Lean.Name := #[
   `l0, 
