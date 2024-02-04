@@ -18,7 +18,7 @@ def treeDisplay : Tactic
   | stx@`(tactic| with_tree_display $tacs) => do
     let tgt ← withTransparency .instances do 
       reduceAll (← getMainTarget)
-    let t ← tgt.toDisplayTree 
+    let t ← (tgt.toDisplayTree).run .root 
     savePanelWidgetInfo stx ``OrdinaryTreeDisplay do
       return json% { tree : $(← rpcEncode t) }
     evalTacticSeq tacs
