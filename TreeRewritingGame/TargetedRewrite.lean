@@ -66,6 +66,15 @@ def isApplicableRewrite? (thmName : Name) (symm : Bool) (p : SubExpr.Pos) (e : E
         isDefEq lhs s 
     | none => return false
 
+elab "add_rewrite_rules" "[" thms:name,* "]" : tactic => do
+  let thmNames := thms.getElems.filterMap Syntax.isNameLit?
+  let vals : KVMap := { entries := Array.toList <| thmNames.concatMap fun thmName ↦ 
+    #[(thmName, .ofBool false), (thmName, .ofBool true)] }
+  let goal ← Tactic.getMainGoal
+  let target := (← goal.getDecl).type
+  let goal' ← goal.replaceTargetDefEq (Expr.mdata vals target)
+  Tactic.replaceMainGoal [goal']
+
 open Tactic in
 elab "rewrite" "[" symm:("←")? hyp:term "]" "at" "[" pos:num,* "]" : tactic => do
   let p : SubExpr.Pos := pos.getElems.map (·.raw.isNatLit?.get!) |> .ofArray
@@ -81,5 +90,6 @@ elab "rewrite" "[" symm:("←")? hyp:term "]" "at" "[" pos:num,* "]" : tactic =>
 --   rewrite [Nat.add_comm] at [1, 1, 0, 1]
 
 example : ∀ f : Nat → Nat, f (1 + 2) = f (2 + 1) := by
+  add_rewrite_rules [ `Nat.add_comm ]
   rewrite [Nat.add_comm] at [1, 0, 1, 1]
   sorry
