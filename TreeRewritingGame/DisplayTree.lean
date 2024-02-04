@@ -2,7 +2,7 @@ import ProofWidgets
 import Std.Data.Array.Basic
 import TreeRewritingGame.DisplayAliasExtension
 
-open Lean Meta Widget
+open Lean PrettyPrinter Delaborator Meta Widget
 
 instance : Repr CodeWithInfos where
   reprPrec c _prec := c.pretty
@@ -37,6 +37,32 @@ def Lean.Widget.CodeWithInfos.withRelativePos (codeWithInfos : CodeWithInfos) (p
 def ppExprTaggedRelative (e : Expr) : (ReaderT SubExpr.Pos MetaM) CodeWithInfos := do
   return (← ppExprTagged e).withRelativePos (← read)
 
+open Lean PrettyPrinter
+def annotateAs (txt : String) (e : SubExpr) (pos : SubExpr.Pos := .root) (delab : Delab := delab) : MetaM CodeWithInfos := do
+  let (_stx, infos) ← delabCore e.expr {} delab
+  let .some info := infos.find? pos | throwError m!"Could not find info for the expression {e.expr}."
+  let ctx := {
+    env           := (← getEnv)
+    mctx          := (← getMCtx)
+    options       := (← getOptions)
+    currNamespace := (← getCurrNamespace)
+    openDecls     := (← getOpenDecls)
+    fileMap       := default
+    ngen          := (← getNGen)
+  }
+  let subexprInfo : SubexprInfo := {
+    info := .mk {
+      ctx := ctx,
+      info := info,
+      children := .empty
+    },
+    subexprPos := e.pos
+  }
+  return .tag subexprInfo (.text txt)
+
+def annotateCurrentAs (txt : String) (e : Expr) : (ReaderT SubExpr.Pos MetaM) CodeWithInfos := do
+  annotateAs txt ⟨e, ← read⟩
+
 open Expr in 
 partial def Lean.Expr.toDisplayTree (e : Expr) : (ReaderT SubExpr.Pos MetaM) (Option DisplayTree) := do 
   match e with 
@@ -63,17 +89,17 @@ partial def Lean.Expr.toDisplayTree (e : Expr) : (ReaderT SubExpr.Pos MetaM) (Op
           pure fvars
         else
           fvars.mapM (inferType ·)
-      let label := 
+      let label ←
         if isDependent then
-          .text "∀"
+           annotateCurrentAs "∀" e
         else
-          .text "→"
+          annotateCurrentAs "→" e
       let (quantifierTrees, bodyTree) ← displayBinders quantifiers.toList body
       return node label (quantifierTrees.concat bodyTree).toArray.reduceOption
   | e@(Expr.lam ..) =>
       lambdaTelescope e <| fun fvars body => do
         let (quantifierTrees, bodyTree) ← displayBinders fvars.toList body
-        let label := .text "λ"
+        let label ← annotateCurrentAs "λ" e
         return node label (quantifierTrees.concat bodyTree).toArray.reduceOption
   | Expr.bvar _ => panic! "Unbound bvar in expression"
   | Expr.mdata _ e => e.toDisplayTree
