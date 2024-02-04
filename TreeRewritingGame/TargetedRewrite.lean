@@ -54,6 +54,18 @@ def rewriteAt (p : SubExpr.Pos) (e heq : Expr) (symm : Bool := false) : MetaM Re
         contAt (α := α) (lhs := lhs) (rhs := rhs) (p := p) (heq := heq) e
   | none => throwError "Equality or iff expected"
 
+def isApplicableRewrite? (thmName : Name) (symm : Bool) (p : SubExpr.Pos) (e : Expr) : MetaM Bool := do
+  let thmType ← inferType =<< mkConstWithLevelParams thmName
+  let (_, _, heqType) ← forallMetaTelescopeReducing thmType
+  viewSubexpr (p := p) (root := e) fun _ s ↦ do 
+    match heqType.eqOrIff? with
+    | some (lhs, rhs) => 
+      if symm then
+        isDefEq rhs s
+      else
+        isDefEq lhs s 
+    | none => return false
+
 open Tactic in
 elab "rewrite" "[" symm:("←")? hyp:term "]" "at" "[" pos:num,* "]" : tactic => do
   let p : SubExpr.Pos := pos.getElems.map (·.raw.isNatLit?.get!) |> .ofArray
