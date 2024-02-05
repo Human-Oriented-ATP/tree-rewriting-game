@@ -40,7 +40,7 @@ deriving RpcEncodable
 @[server_rpc_method]
 def allowedTreeRewrites (props : InteractionProps) : RequestM (RequestTask Html) := do
   let #[selectedLoc] := props.selectedLocations | return .pure <span>Select a single location</span>
-  let some goal := props.goals.find? (·.mvarId == selectedLoc.mvarId) | return .pure <span>No goals found</span>
+  let #[goal] := props.goals | return .pure <span>Expected a single goal</span>
   let ⟨_, .target pos⟩ := selectedLoc | return .pure <span>Select a location in the target</span>
   let doc ← RequestM.readDoc 
   goal.ctx.val.runMetaM {} do -- following `SelectInsertConv`
