@@ -1,6 +1,7 @@
 import TreeRewritingGame.DisplayTree
 import TreeRewritingGame.Meta
-import ProofWidgets 
+import TreeRewritingGame.Rewrite
+import ProofWidgets
 
 open Lean Meta Elab Server Tactic ProofWidgets Json Jsx
 
@@ -51,15 +52,16 @@ def allowedTreeRewrites (props : InteractionProps) : RequestM (RequestTask Html)
       let rules := extractRewriteRules target
       let elems : Array Html ← rules.concatMapM fun (thmName, symm) ↦ do
         let html? ← ifApplicableRewrite? pos target thmName symm displayRewriteRule
-        let tacticCall := createRewriteTacticCall thmName symm pos
-        return if let some html := html? then 
-            #[html, 
-              <br />,
-              .ofComponent MakeEditLink (.ofReplaceRange doc.meta props.range tacticCall) #[.text tacticCall],
-              <hr />] 
+        let thmAbst ← abstractMVars =<< mkConstWithLevelParams thmName
+        if let some html := html? then do
+          let tacticCall ← rewriteTacticCall ⟨goal.mvarId, .target pos⟩ goal thmAbst symm
+          return #[html, 
+            <br />,
+            .ofComponent MakeEditLink (.ofReplaceRange doc.meta props.range tacticCall) #[.text tacticCall],
+            <hr />] 
           else 
-            #[.text s!"Not {thmName} at {pos}"]
-      return .pure <| .element "div" #[] (#[<h1>Rewrite suggestions</h1>, <hr />] ++ elems)
+            return #[.text s!"Not {thmName} at {pos}"]
+      return .pure <| .element "div" #[("style", json%{align: "center"})] (#[<h1>Rewrite suggestions</h1>, <hr />] ++ elems)
  
 @[widget_module]
 def TreeRewritingGame : Component TreeDisplayProps where
