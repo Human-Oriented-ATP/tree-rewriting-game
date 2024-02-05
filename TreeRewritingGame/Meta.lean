@@ -54,7 +54,7 @@ def rewriteAt (p : SubExpr.Pos) (e heq : Expr) (symm : Bool := false) : MetaM Re
         contAt (α := α) (lhs := lhs) (rhs := rhs) (p := p) (heq := heq) e
   | none => throwError "Equality or iff expected"
 
-def ifApplicableRewrite? (thmName : Name) (symm : Bool) (p : SubExpr.Pos) (e : Expr) 
+def ifApplicableRewrite? (p : SubExpr.Pos) (e : Expr) (thmName : Name) (symm : Bool)
     (φ : (lhs : Expr) → (rhs : Expr) → MetaM α) : MetaM (Option α) := do
   let some constInfo := (← getEnv).find? thmName | throwError m!"Could not find {thmName} in the environment."
   let thmType := constInfo.type
@@ -80,6 +80,10 @@ elab "add_rewrite_rules" "[" thms:name,* "]" : tactic => do
   let target := (← goal.getDecl).type
   let goal' ← goal.replaceTargetDefEq (Expr.mdata vals target)
   Tactic.replaceMainGoal [goal']
+
+def extractRewriteRules : Expr → Array (Name × Bool)
+  | .mdata kvMap _ => .mk <| kvMap.entries.map fun (n, v) => (n, v.getBoolEx)
+  | _ => panic! "No meta-data found in expression."
 
 open Tactic in
 elab "rewrite" "[" symm:("←")? hyp:term "]" "at" "[" pos:num,* "]" : tactic => do
