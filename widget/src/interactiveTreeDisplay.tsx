@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Tree from 'react-d3-tree';
 import { LocationsContext, CodeWithInfos, DocumentPosition, InteractiveCode, GoalsLocation, PanelWidgetProps } from '@leanprover/infoview';
+import { Range } from 'vscode-languageserver-protocol';
 import type { RawNodeDatum, CustomNodeElementProps } from 'react-d3-tree/lib/types/types/common';
 
 export type DisplayTree =
@@ -8,7 +9,7 @@ export type DisplayTree =
 
 export type TreeNodeDatum = RawNodeDatum & { label?: CodeWithInfos }
 
-export type DisplayTreeProps = PanelWidgetProps & { tree : DisplayTree, divStyle : object }
+export type DisplayTreeProps = PanelWidgetProps & { tree : DisplayTree, divStyle : object, range : Range }
 
 function treeToData(tree: DisplayTree): TreeNodeDatum {
     const { label, children } = tree.node
