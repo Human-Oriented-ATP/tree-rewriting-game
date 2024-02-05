@@ -96,6 +96,9 @@ elab "rewrite" "[" symm:("←")? hyp:term "]" "at" "[" pos:num,* "]" : tactic =>
     let goal' ← goal.replaceTargetEq r.eNew r.eqProof
     replaceMainGoal (goal' :: r.mvarIds)
 
+def createRewriteTacticCall (thmName : Name) (symm : Bool) (pos : SubExpr.Pos) : String :=
+  s!"rewrite [{if symm then "← " else ""}{thmName}] at {pos.toArray.toList}"
+
 -- example : ∀ m n : Nat, m + n = n + m := by
 --   rewrite [Nat.add_comm] at [1, 1, 0, 1]
 
