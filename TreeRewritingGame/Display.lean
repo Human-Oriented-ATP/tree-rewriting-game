@@ -1,4 +1,5 @@
 import TreeRewritingGame.DisplayTree
+import TreeRewritingGame.Meta
 import ProofWidgets 
 
 open Lean Meta Elab Server Tactic ProofWidgets Json Jsx
@@ -20,8 +21,6 @@ deriving RpcEncodable
 def TreeDisplay : Component TreeDisplayProps where
   javascript := include_str ".." / "build" / "js" / "interactiveTreeDisplay.js"
 
-syntax (name := tree_display) "with_tree_display" tacticSeq : tactic
-
 def displayRewriteRule (lhs : Expr) (rhs : Expr) : MetaM Html := do
   let .some lhsTree ← lhs.toDisplayTreeAtRoot | throwError m!"Failed to display {lhs} as tree."
   let .some rhsTree ← rhs.toDisplayTreeAtRoot | throwError m!"Failed to display {rhs} as tree."
@@ -33,24 +32,45 @@ def displayRewriteRule (lhs : Expr) (rhs : Expr) : MetaM Html := do
     </div>
   )
 
-@[tactic tree_display]
-def treeDisplay : Tactic
-  | stx@`(tactic| with_tree_display $tacs) => do
+@[server_rpc_method]
+def allowedTreeRewrites (props : PanelWidgetProps) : RequestM (RequestTask Html) := do
+  let #[selectedLoc] := props.selectedLocations | return .pure <span>Select a single location</span>
+  let some goal := props.goals.find? (·.mvarId == selectedLoc.mvarId) | return .pure <span>No goals found</span>
+  let ⟨_, .target pos⟩ := selectedLoc | return .pure <span>Select a location in the target</span>
+  goal.ctx.val.runMetaM {} do -- following `SelectInsertConv`
+    let md ← goal.mvarId.getDecl
+    let lctx := md.lctx |>.sanitizeNames.run' {options := (← getOptions)}
+    Meta.withLCtx lctx md.localInstances do
+      let target := md.type
+      let rules := extractRewriteRules target
+      let elems : Array Html ← rules.concatMapM fun (thmName, symm) ↦ do
+        let html? ← ifApplicableRewrite? pos target thmName symm displayRewriteRule
+        return if let some html := html? then #[html] else #[]
+      return .pure <| .element "div" #[] elems
+ 
+@[widget_module]
+def TreeRewritingGame : Component TreeDisplayProps where
+  javascript := include_str ".." / "build" / "js" / "treeRewritingGame.js"
+
+syntax (name := tree_game) "tree_game" : tactic
+
+@[tactic tree_game]
+def treeGame : Tactic
+  | stx@`(tactic| tree_game) => do
     let tgt ← withTransparency .instances do 
       reduceAll (← getMainTarget)
     let t ← (tgt.toDisplayTree).run .root 
-    savePanelWidgetInfo stx ``TreeDisplay do
+    savePanelWidgetInfo stx ``TreeRewritingGame do
       return json% { tree : $(← rpcEncode t) }
-    evalTacticSeq tacs
   | _ => Elab.throwUnsupportedSyntax
 
 example : True := by 
   with_panel_widgets[GoalTypePanel]
-  sorry 
+  sorry
 
-example (P Q : Prop) : P ∧ Q → Q ∧ P := by 
-  with_tree_display
-    sorry
+example (P Q : Prop) : P ∧ Q → Q ∧ P := by
+  add_rewrite_rules [ `And.symm ]
+  tree_game
 
 example (P : Prop) : P = True → P := by 
   with_panel_widgets[GoalTypePanel]
