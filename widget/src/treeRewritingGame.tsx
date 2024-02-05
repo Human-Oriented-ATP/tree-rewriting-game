@@ -1,8 +1,21 @@
 import * as React from 'react';
 import { LocationsContext, CodeWithInfos, RpcContext, mapRpcError, DocumentPosition, InteractiveCode, GoalsLocation, PanelWidgetProps, useAsyncPersistent } from '@leanprover/infoview';
+import { Range } from 'vscode-languageserver-protocol';
 import RenderDisplayTree from './interactiveTreeDisplay';
 import {DisplayTreeProps, DisplayTree} from './interactiveTreeDisplay';
 import HtmlDisplay, { Html, renderHtml } from './htmlDisplay';
+
+export type InteractionProps = PanelWidgetProps & { range : Range }
+
+function DisplayTreePropsToInteractionProps(props:DisplayTreeProps) : InteractionProps {
+    return {
+        pos : props.pos,
+        termGoal : props.termGoal,
+        selectedLocations : props.selectedLocations,
+        goals : props.goals,
+        range : props.range
+    }
+}
 
 export default function RenderDisplay(props: DisplayTreeProps) : JSX.Element {
     const pos = props.pos
@@ -26,7 +39,7 @@ export default function RenderDisplay(props: DisplayTreeProps) : JSX.Element {
     React.useEffect(() => setSelectedLocs([]), [pos.uri, pos.line, pos.character]);
 
     const selectionResponseState = useAsyncPersistent( async function() : Promise<JSX.Element> {
-        const html = await rs.call<PanelWidgetProps, Html>('allowedTreeRewrites', props as PanelWidgetProps);
+        const html = await rs.call<InteractionProps, Html>('allowedTreeRewrites', DisplayTreePropsToInteractionProps(props));
         return renderHtml(rs, props.pos, html);
         }, [selectedLocs])
 
