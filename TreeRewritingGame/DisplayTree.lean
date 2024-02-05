@@ -75,7 +75,8 @@ partial def Lean.Expr.toDisplayTree (e : Expr) : (ReaderT SubExpr.Pos MetaM) (Op
           if (← isInstance c) then
             logInfo m!"Found instance constant: {c}"
             return none
-        let (label, argumentsAsTrees) ← displayApp f arguments
+        let label ← ppExprTaggedRelative f
+        let argumentsAsTrees ← displayApp f arguments
         return node label argumentsAsTrees.reduceOption   
   | e@(Expr.forallE ..) =>
       Meta.forallTelescopeReducing e <| fun fvars body => do
@@ -103,15 +104,15 @@ partial def Lean.Expr.toDisplayTree (e : Expr) : (ReaderT SubExpr.Pos MetaM) (Op
   | Expr.proj .. => return none
 where
   -- Possible TODO: Refactor using `pushNaryArg` and `pushNthBindingDomain`
-  displayApp (f : Expr) (args : Array Expr) : (ReaderT SubExpr.Pos MetaM) (CodeWithInfos × Array (Option DisplayTree)) :=
+  displayApp (f : Expr) (args : Array Expr) : (ReaderT SubExpr.Pos MetaM) (Array (Option DisplayTree)) :=
     if args.isEmpty then do
-      return (← ppExprTaggedRelative f, #[])
+      return #[]
     else do
       let arg := args.back
       let argsRest := args.pop
       let argTree ← withReader (·.pushAppArg) arg.toDisplayTree
-      let (fLabel, argTrees) ← withReader (·.pushAppFn) <| displayApp f argsRest
-      return (fLabel, argTrees.push argTree)
+      let argTrees ← withReader (·.pushAppFn) <| displayApp f argsRest
+      return argTrees.push argTree
   displayBinders (quantifiers : List Expr) (body : Expr) : (ReaderT SubExpr.Pos MetaM) (List (Option DisplayTree) × Option DisplayTree) := do
     match quantifiers with
     | [] => return ([], ← body.toDisplayTree)
