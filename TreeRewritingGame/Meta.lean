@@ -78,7 +78,11 @@ elab "add_rewrite_rules" "[" thms:name,* "]" : tactic => do
     #[(thmName, .ofBool false), (thmName, .ofBool true)] }
   let goal ← Tactic.getMainGoal
   let target := (← goal.getDecl).type
-  let goal' ← goal.replaceTargetDefEq (Expr.mdata vals target)
+  let newTarget :=
+    match target with
+      | .mdata kvmap e => .mdata (KVMap.mergeBy (fun _ _ ↦ id) kvmap vals) e
+      | target => Expr.mdata vals target
+  let goal' ← goal.replaceTargetDefEq newTarget
   Tactic.replaceMainGoal [goal']
 
 def extractRewriteRules : Expr → Array (Name × Bool)
