@@ -51,12 +51,15 @@ def allowedTreeRewrites (props : InteractionProps) : RequestM (RequestTask Html)
       let rules := extractRewriteRules target
       let elems : Array Html ← rules.concatMapM fun (thmName, symm) ↦ do
         let html? ← ifApplicableRewrite? pos target thmName symm displayRewriteRule
+        let tacticCall := createRewriteTacticCall thmName symm pos
         return if let some html := html? then 
             #[html, 
-              .ofComponent MakeEditLink (.ofReplaceRange doc.meta props.range <| createRewriteTacticCall thmName symm pos) #[]] 
+              <br />,
+              .ofComponent MakeEditLink (.ofReplaceRange doc.meta props.range tacticCall) #[.text tacticCall],
+              <hr />] 
           else 
-            #[]
-      return .pure <| .element "div" #[] elems
+            #[.text s!"Not {thmName} at {pos}"]
+      return .pure <| .element "div" #[] (#[<h1>Rewrite suggestions</h1>, <hr />] ++ elems)
  
 @[widget_module]
 def TreeRewritingGame : Component TreeDisplayProps where
@@ -82,7 +85,7 @@ example : True := by
   sorry
 
 example (P Q : Prop) : P ∧ Q → Q ∧ P := by
-  add_rewrite_rules [ `And.symm ]
+  add_rewrite_rules [ `And.comm ]
   tree_game
 
 example (P : Prop) : P = True → P := by 
