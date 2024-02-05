@@ -26,7 +26,7 @@ export default function RenderDisplay(props: DisplayTreeProps) : JSX.Element {
     React.useEffect(() => setSelectedLocs([]), [pos.uri, pos.line, pos.character]);
 
     const selectionResponseState = useAsyncPersistent( async function() : Promise<JSX.Element> {
-        const html = await rs.call<DisplayTreeProps, Html>('allowedTreeRewrites', props);
+        const html = await rs.call<PanelWidgetProps, Html>('allowedTreeRewrites', props as PanelWidgetProps);
         return renderHtml(rs, props.pos, html);
         }, [selectedLocs])
 
