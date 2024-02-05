@@ -15,6 +15,7 @@ structure TreeDisplayProps where
         resize: "both",
         opacity: "0.9"
     }
+  range : Lsp.Range := default
 deriving RpcEncodable
 
 @[widget_module]
@@ -32,11 +33,16 @@ def displayRewriteRule (lhs : Expr) (rhs : Expr) : MetaM Html := do
     </div>
   )
 
+structure InteractionProps extends PanelWidgetProps where
+  range : Lsp.Range
+deriving RpcEncodable
+
 @[server_rpc_method]
-def allowedTreeRewrites (props : PanelWidgetProps) : RequestM (RequestTask Html) := do
+def allowedTreeRewrites (props : InteractionProps) : RequestM (RequestTask Html) := do
   let #[selectedLoc] := props.selectedLocations | return .pure <span>Select a single location</span>
   let some goal := props.goals.find? (·.mvarId == selectedLoc.mvarId) | return .pure <span>No goals found</span>
   let ⟨_, .target pos⟩ := selectedLoc | return .pure <span>Select a location in the target</span>
+  let doc ← RequestM.readDoc 
   goal.ctx.val.runMetaM {} do -- following `SelectInsertConv`
     let md ← goal.mvarId.getDecl
     let lctx := md.lctx |>.sanitizeNames.run' {options := (← getOptions)}
@@ -45,7 +51,11 @@ def allowedTreeRewrites (props : PanelWidgetProps) : RequestM (RequestTask Html)
       let rules := extractRewriteRules target
       let elems : Array Html ← rules.concatMapM fun (thmName, symm) ↦ do
         let html? ← ifApplicableRewrite? pos target thmName symm displayRewriteRule
-        return if let some html := html? then #[html] else #[]
+        return if let some html := html? then 
+            #[html, 
+              .ofComponent MakeEditLink (.ofReplaceRange doc.meta props.range <| createRewriteTacticCall thmName symm pos) #[]] 
+          else 
+            #[]
       return .pure <| .element "div" #[] elems
  
 @[widget_module]
@@ -57,11 +67,14 @@ syntax (name := tree_game) "tree_game" : tactic
 @[tactic tree_game]
 def treeGame : Tactic
   | stx@`(tactic| tree_game) => do
+    let some stxRange := (← getFileMap).rangeOfStx? stx | return ()
     let tgt ← withTransparency .instances do 
       reduceAll (← getMainTarget)
-    let t ← (tgt.toDisplayTree).run .root 
+    let t ← tgt.toDisplayTreeAtRoot
     savePanelWidgetInfo stx ``TreeRewritingGame do
-      return json% { tree : $(← rpcEncode t) }
+      return json% { 
+        tree : $(← rpcEncode t),
+        range : $(stxRange) }
   | _ => Elab.throwUnsupportedSyntax
 
 example : True := by 
