@@ -59,6 +59,11 @@ def annotateAs (txt : String) (e : SubExpr) (pos : SubExpr.Pos := .root) (delab 
 def annotateCurrentAs (txt : String) (e : Expr) : (ReaderT SubExpr.Pos MetaM) CodeWithInfos := do
   annotateAs txt ⟨e, ← read⟩
 
+def ppConst : String → String 
+  | "@Eq" => "="
+  | "@Function.comp" => "∘"
+  | l => l
+
 open Expr in 
 partial def Lean.Expr.toDisplayTree (e : Expr) : (ReaderT SubExpr.Pos MetaM) (Option DisplayTree) := do 
   match e with 
