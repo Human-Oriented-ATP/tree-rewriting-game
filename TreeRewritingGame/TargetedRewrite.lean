@@ -54,17 +54,23 @@ def rewriteAt (p : SubExpr.Pos) (e heq : Expr) (symm : Bool := false) : MetaM Re
         contAt (α := α) (lhs := lhs) (rhs := rhs) (p := p) (heq := heq) e
   | none => throwError "Equality or iff expected"
 
-def isApplicableRewrite? (thmName : Name) (symm : Bool) (p : SubExpr.Pos) (e : Expr) : MetaM Bool := do
-  let thmType ← inferType =<< mkConstWithLevelParams thmName
+def ifApplicableRewrite? (thmName : Name) (symm : Bool) (p : SubExpr.Pos) (e : Expr) 
+    (φ : (lhs : Expr) → (rhs : Expr) → MetaM α) : MetaM (Option α) := do
+  let some constInfo := (← getEnv).find? thmName | throwError m!"Could not find {thmName} in the environment."
+  let thmType := constInfo.type
   let (_, _, heqType) ← forallMetaTelescopeReducing thmType
   viewSubexpr (p := p) (root := e) fun _ s ↦ do 
     match heqType.eqOrIff? with
     | some (lhs, rhs) => 
       if symm then
-        isDefEq rhs s
+        if ← isDefEq rhs s then
+          φ (← instantiateMVars rhs) (← instantiateMVars lhs)
+        else return none
       else
-        isDefEq lhs s 
-    | none => return false
+        if ← isDefEq lhs s then
+          φ (← instantiateMVars lhs) (← instantiateMVars rhs)
+        else return none
+    | none => return none
 
 elab "add_rewrite_rules" "[" thms:name,* "]" : tactic => do
   let thmNames := thms.getElems.filterMap Syntax.isNameLit?
