@@ -1,21 +1,17 @@
-import ProofWidgets 
 import Std.Data.Array.Basic
-import TreeRewritingGame.DisplayAliasExtension
 
-open Lean PrettyPrinter Delaborator Meta Widget
+open Lean Server PrettyPrinter Delaborator Meta Widget
 
 instance : Repr CodeWithInfos where
   reprPrec c _prec := c.pretty
 
 inductive DisplayTree where 
   | node : (label : CodeWithInfos) → (children : Array DisplayTree) → DisplayTree
-deriving Repr
+deriving Repr, RpcEncodable
 
 open DisplayTree
 
 def DisplayTree.leaf (label : CodeWithInfos) := node label #[]
-
-#mkrpcenc DisplayTree
 
 section LensNotation
 
@@ -123,3 +119,6 @@ where
       let headQuantifierTree ← withReader (·.pushBindingDomain) headQuantifier.toDisplayTree
       let (quantifierTrees, bodyTree) ← withReader (·.pushBindingBody) <| displayBinders quantifiersRest body
       return (headQuantifierTree :: quantifierTrees, bodyTree)
+
+def Lean.Expr.toDisplayTreeAtRoot (e : Expr) : MetaM (Option DisplayTree) := do
+  e.toDisplayTree |>.run .root
