@@ -33,13 +33,12 @@ export default function RenderDisplay(props: DisplayTreeProps) : JSX.Element {
                 newLocs.push(l);
             return wasSelected === isSelected ? ls : newLocs;
         }),
-        subexprTemplate: { mvarId: '', loc: { target: '' }}
+        subexprTemplate: { mvarId: 'dummyMVarId', loc: { target: '' }}
     }), [selectedLocs]);
-    props.selectedLocations = selectedLocs;
     React.useEffect(() => setSelectedLocs([]), [pos.uri, pos.line, pos.character]);
 
-    const selectionResponseState = useAsyncPersistent( async function() : Promise<JSX.Element> {
-        const html = await rs.call<InteractionProps, Html>('allowedTreeRewrites', DisplayTreePropsToInteractionProps(props));
+    const selectionResponseState = useAsyncPersistent(async function() : Promise<JSX.Element> {
+        const html = await rs.call<InteractionProps, Html>('allowedTreeRewrites', DisplayTreePropsToInteractionProps({...props, selectedLocations: selectedLocs}));
         return renderHtml(rs, props.pos, html);
         }, [selectedLocs])
 
